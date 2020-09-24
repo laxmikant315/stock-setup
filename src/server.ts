@@ -11,7 +11,7 @@ require('dotenv').config()
 
 
 const app = new App({
-    port: +env.PORT || 5003,
+    port: +env.PORT || 5004,
     controllers: [
         new HomeController()
     ],

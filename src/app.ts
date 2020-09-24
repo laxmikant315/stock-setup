@@ -1,6 +1,7 @@
 import * as express from "express";
 import { Application } from "express";
-
+import { env } from "process";
+const mongoose = require("mongoose");
 
 export const sockets = [];
 class App {
@@ -25,6 +26,16 @@ class App {
     middleWares.forEach((middleWare) => {
       this.app.use(middleWare);
     });
+
+
+    console.log("Database is connecting.");
+
+    await mongoose.connect(env.MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+
+    console.log("Database connected.");
   }
 
   private routes(controllers: {
