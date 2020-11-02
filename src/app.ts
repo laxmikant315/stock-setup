@@ -1,8 +1,6 @@
 import * as express from "express";
 import { Application } from "express";
 import Knex = require("knex");
-import { env } from "process";
-const mongoose = require("mongoose");
 
 export const sockets = [];
 
@@ -34,15 +32,6 @@ class App {
       this.app.use(middleWare);
     });
 
-
-    console.log("Database is connecting.");
-
-    await mongoose.connect(env.MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
-
-    console.log("Database connected.");
   }
 
   private routes(controllers: {

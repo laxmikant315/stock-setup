@@ -3,7 +3,6 @@ import { Request, Response } from "express";
 import IControllerBase from "interfaces/IControllerBase.interface";
 import axios from "axios";
 import * as moment from 'moment'
-import AppSettings from "../../../models/app-settings";
 
 import * as margins from "./margin.json";
 import { db } from "../../server";
