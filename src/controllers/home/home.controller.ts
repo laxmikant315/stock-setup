@@ -64,6 +64,9 @@ class HomeController implements IControllerBase {
   };
 
   public initRoutes() {
+    this.router.get("/welcome", async (req: Request, res: Response) => {
+      res.send("Welcome")
+    })
     this.router.get("/", async (req: Request, res: Response) => {
       try {
         const dailyVolitilityEnabled = false;
