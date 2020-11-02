@@ -6,6 +6,7 @@ import * as moment from 'moment'
 import AppSettings from "../../../models/app-settings";
 
 import * as margins from "./margin.json";
+import { db } from "../../server";
 const csv = require("csvtojson");
 
 class HomeController implements IControllerBase {
@@ -24,10 +25,10 @@ class HomeController implements IControllerBase {
   };
 
 
-  getNiftyStocks = async (next50?:boolean) => {
+  getNiftyStocks = async (next50?: boolean) => {
     let url = 'https://www1.nseindia.com/live_market/dynaContent/live_watch/stock_watch/niftyStockWatch.json';
-    if(next50){
-      url="https://www1.nseindia.com/live_market/dynaContent/live_watch/stock_watch/juniorNiftyStockWatch.json"
+    if (next50) {
+      url = "https://www1.nseindia.com/live_market/dynaContent/live_watch/stock_watch/juniorNiftyStockWatch.json"
     }
 
     return await axios
@@ -35,7 +36,7 @@ class HomeController implements IControllerBase {
       .then((x) => x.data.data.map((x) => ({ symbol: x.symbol, previousClose: x.previousClose })))
       .catch((e) => {
         console.log('Failed to get nifty stocks', e);
-       
+
       });
 
 
@@ -66,6 +67,7 @@ class HomeController implements IControllerBase {
   public initRoutes() {
     this.router.get("/", async (req: Request, res: Response) => {
       try {
+        const dailyVolitilityEnabled = false;
 
         const marginApply = false;
         const previousDay = await this.getLatestDate();
@@ -74,85 +76,88 @@ class HomeController implements IControllerBase {
 
         let first50 = await this.getNiftyStocks();
 
-         let next50 = await this.getNiftyStocks(true);
-      
-        let niftyStocks = [...first50,...next50];
-        console.log('NiftyStocks',niftyStocks.length)
+        let next50 = await this.getNiftyStocks(true);
+
+        let niftyStocks = [...first50, ...next50];
+        console.log('NiftyStocks', niftyStocks.length)
         niftyStocks = niftyStocks
-          .filter(x => x.previousClose >= 50)
+          .filter(x => x.previousClose >= 100)
           .map(y => y.symbol)
 
-        const dailyVolitilityStocks = await this.getVolitilityStocks(moment(previousDay).format('DDMMYYYY'));
+        if (dailyVolitilityEnabled) {
 
-        console.log('dailyVolitilityStocks length', dailyVolitilityStocks.length)
+          const dailyVolitilityStocks = await this.getVolitilityStocks(moment(previousDay).format('DDMMYYYY'));
 
-
-        if (niftyStocks && dailyVolitilityStocks && dailyVolitilityStocks.length) {
-          console.log("Nifty Stocks loaded.", niftyStocks, 'Length', niftyStocks.length);
+          console.log('dailyVolitilityStocks length', dailyVolitilityStocks.length)
 
 
+          if (niftyStocks && dailyVolitilityStocks && dailyVolitilityStocks.length) {
 
-          let niftyVolatilited = dailyVolitilityStocks.filter((x) =>
-            niftyStocks.includes(x[1])
-          );
+            console.log("Nifty Stocks loaded.", niftyStocks, 'Length', niftyStocks.length);
 
-          for (const x of niftyVolatilited) {
-            x.daily = +x[6] * 100;
-          }
 
-          const sum = niftyVolatilited.map((x) => x.daily).reduce((x, y) => (x += y));
-          console.log("sum", sum);
-          const avg = sum / niftyVolatilited.length;
-          console.log("avg", avg);
-          niftyVolatilited = niftyVolatilited
 
-            .filter((x) => x.daily > avg)
-            .sort((x, y) => {
-              return y.daily - x.daily;
-            });
+            let niftyVolatilited = dailyVolitilityStocks.filter((x) =>
+              niftyStocks.includes(x[1])
+            );
 
-          if (marginApply) {
-            for (let n of niftyVolatilited) {
-              n.margin = margins.find((y) => y.symbol === n[1])?.margin;
+            for (const x of niftyVolatilited) {
+              x.daily = +x[6] * 100;
             }
-            niftyVolatilited = niftyVolatilited.filter((x) => x.margin >= 10);
 
-          }
+            const sum = niftyVolatilited.map((x) => x.daily).reduce((x, y) => (x += y));
+            console.log("sum", sum);
+            const avg = sum / niftyVolatilited.length;
+            console.log("avg", avg);
+            niftyVolatilited = niftyVolatilited
 
-          console.log("result", niftyVolatilited, "length", niftyVolatilited.length);
-          const intradayStocks = niftyVolatilited.map((x) => ({
-            symbol: x[1],
-            margin: x.margin,
-          }));
+              .filter((x) => x.daily > avg)
+              .sort((x, y) => {
+                return y.daily - x.daily;
+              });
 
+            if (marginApply) {
+              for (let n of niftyVolatilited) {
+                n.margin = margins.find((y) => y.symbol === n[1])?.margin;
+              }
+              niftyVolatilited = niftyVolatilited.filter((x) => x.margin >= 10);
 
-          let appSettings = await AppSettings.findOne().exec();
-          if (niftyStocks && dailyVolitilityStocks) {
-            if (!appSettings) {
-              appSettings = new AppSettings({ intradayStocks });
-              await appSettings.save().catch((error) => console.log('Failed to store data', error));
-
-              console.log("Documents inserted");
-            } else {
-              const response = await appSettings
-                .update({
-                  intradayStocks
-                })
-                .catch((error) => console.log('Failed to store data', error));
-
-              console.log("Documents Updated");
             }
+
+            console.log("result", niftyVolatilited, "length", niftyVolatilited.length);
+
+            niftyStocks = niftyVolatilited.map((x) => x[1]);
+          } else {
+
+            res.send('Daily Volitality Stocks are not ready yet.');
           }
-
-
-
-
-          res.send({intradayStocks});
-
-        } else {
-
-          res.send('Daily Volitality Stocks are not ready yet.');
         }
+
+
+
+
+        let appSettings = await db('appSettings').select().first().catch(e => console.log);
+
+
+        console.log('niftyStocks', niftyStocks.length)
+        if (niftyStocks) {
+          if (!appSettings) {
+
+            await db('appSettings').insert({ intradayStocks: niftyStocks }).catch((error) => console.log('Failed to store data', error));
+
+            console.log("Documents inserted");
+          } else {
+
+
+            await db('appSettings').first().update({ intradayStocks: niftyStocks }).then(() => console.log("Stocks updated")).catch((error) => console.log('Failed to store data', error))
+
+            console.log("Documents Updated");
+          }
+        }
+
+        res.send({ niftyStocks });
+
+
       }
       catch (error) {
         res.send(error);

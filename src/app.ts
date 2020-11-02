@@ -1,19 +1,26 @@
 import * as express from "express";
 import { Application } from "express";
+import Knex = require("knex");
 import { env } from "process";
 const mongoose = require("mongoose");
 
 export const sockets = [];
+
+
+
 class App {
-    
-  
+
+
   public app: Application;
   public port: number;
 
- 
+
   constructor(appInit: { port: number; middleWares: any; controllers: any }) {
     this.app = express();
     this.port = appInit.port;
+
+
+
 
     this.middlewares(appInit.middleWares);
     this.routes(appInit.controllers);
@@ -51,10 +58,10 @@ class App {
     this.app.use(express.static("views"));
   }
 
-  
+
 
   public listen() {
-      this.app.listen(this.port, () => {
+    this.app.listen(this.port, () => {
       console.log(`App listening on the http://localhost:${this.port}`);
     });
   }
